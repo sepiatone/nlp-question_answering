@@ -24,3 +24,6 @@ The model will be trained on the [AskUbuntu](https://github.com/taolei87/askubun
 Here we work on the [Android](https://github.com/jiangfeng1124/Android) dataset.
 
 We first apply our model trained on the AskUbuntu dataset on the Android dataset, i.e, direct transfer without domain adaptation. We then apply domain adapatation using techniques explained in [Unsupervised Domain Adaptation by Backpropagation](https://arxiv.org/pdf/1409.7495.pdf) and [Aspect-augmented Adversarial Networks for Domain Adaptation](https://arxiv.org/pdf/1701.00188.pdf).
+
+
+Baseline metrics are obatained by using in-house implementations of the  [BM25](http://www.staff.city.ac.uk/~sb317/papers/foundations_bm25_review.pdf) and [TF-IDF](https://en.wikipedia.org/wiki/Tf%E2%80%93idf) algorithms.
