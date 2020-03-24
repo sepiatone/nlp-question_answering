@@ -19,7 +19,7 @@ We are given a set of questions Q and a training set of similar question pairs {
 The model will be trained on the [AskUbuntu](https://github.com/taolei87/askubuntu) dataset. The algorithm is based on the paper [Semi-supervised Question Retrieval with Gated Convolutions](https://arxiv.org/pdf/1512.05726.pdf)
 
 
-### Task - Transfer Learning
+#### Task - Transfer Learning
 
 Here we work on the [Android](https://github.com/jiangfeng1124/Android) dataset.
 
