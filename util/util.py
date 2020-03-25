@@ -8,7 +8,6 @@ import random
 import time
 from tqdm import trange
 from collections import Counter, defaultdict
-import math
 import numbers
 
 
@@ -120,8 +119,8 @@ def timeit(method):
             name = kw.get('log_name', method.__name__.upper())
             kw['log_time'][name] = int((te - ts) * 1000)
         else:
-            print '%r  %2.2f ms' % \
-                  (method.__name__, (te - ts) * 1000)
+            print('%r  %2.2f ms' % \
+                  (method.__name__, (te - ts) * 1000))
         return result
     return timed
 
@@ -133,7 +132,7 @@ class data_loader():
     def __init__(self, data_file="../data/text_tokenized.txt", unk="<unk>", \
                  padding="<padding>", start="<s>", end="</s>", cut_off=2):
         self.raw_corpus = {}
-        with open(data_file) as data:
+        with open(data_file, "rt", encoding = "utf-8") as data: # with open(data_file) as data:
             for line in data:
                 id, title, body = line.split("\t")
                 if len(title) == 0:
@@ -141,7 +140,7 @@ class data_loader():
                 title = title.strip().split()
                 body = body.strip().split()
                 self.raw_corpus[id] = (title, body)
-        self.vocab = Counter(w for id, pair in self.raw_corpus.iteritems() \
+        self.vocab = Counter(w for id, pair in self.raw_corpus.items() \
                                    for x in pair for w in x)
         self.cut_off = cut_off
         self.unk = unk
@@ -169,14 +168,14 @@ class data_loader():
         self.second_raw_corpus = {}
         with open(data_file) as data:
             for line in data:
-                id, title, body = line.split("\t")
+                idx, title, body = line.split("\t")
                 if len(title) == 0:
                     continue
                 title = title.strip().split()
                 body = body.strip().split()
-                self.second_raw_corpus[id] = (title, body)
+                self.second_raw_corpus[idx] = (title, body)
 
-        vocab_2 = Counter(w for id, pair in self.second_raw_corpus.iteritems() \
+        vocab_2 = Counter(w for idx, pair in self.second_raw_corpus.items() \
                              for x in pair for w in x)
 
         self.vocab += vocab_2
@@ -584,26 +583,6 @@ def evaluate_AUC(data, score_func, encoder, model, cuda, forward):
     return AUC.value(0.05)
 
 
-def evaluate_BM25_AUC(data, model):
-    AUC = AUCMeter()
-    AUC.reset()
-    for question, possibilities, labels in data:
-        labels = np.array(labels)
-        scores = model.BM25Score(question, possibilities)
-        assert len(scores) == len(labels)
-        AUC.add(scores, labels)
-    return AUC.value(0.05)
-
-def evaluate_TFIDF_AUC(data, model):
-    AUC = AUCMeter()
-    AUC.reset()
-    for question, possibilities, labels in data:
-        labels = np.array(labels)
-        scores = model.TFIDFScore(question, possibilities)
-        assert len(scores) == len(labels)
-        AUC.add(scores, labels)
-    return AUC.value(0.05)
-
 def train(encoder, model, num_epoch, data_loader, train_data, dev_data, test_data, batch_size, forward, pre_trained_encoder=True, cuda=False, LR=0.001):
     train_losses = []
     dev_metrics = []
@@ -614,15 +593,17 @@ def train(encoder, model, num_epoch, data_loader, train_data, dev_data, test_dat
     # Say metrics as we start
     dev_metrics.append(evaluate(dev_data, score, encoder, model, cuda, forward))
     test_metrics.append(evaluate(test_data, score, encoder, model, cuda, forward))
-    print "At the start of epoch"
-    print "The DEV MAP is {}, MRR is {}, P1 is {}, P5 is {}".format(dev_metrics[-1][0], dev_metrics[-1][1], dev_metrics[-1][2], dev_metrics[-1][3])
-    print "The TEST MAP is {}, MRR is {}, P1 is {}, P5 is {}".format(test_metrics[-1][0], test_metrics[-1][1], test_metrics[-1][2], test_metrics[-1][3])
+    print("At the start of epoch")
+    # print"The DEV MAP is {}, MRR is {}, P1 is {}, P5 is {}".format(dev_metrics[-1][0], dev_metrics[-1][1], dev_metrics[-1][2], dev_metrics[-1][3])
+    # print "The TEST MAP is {}, MRR is {}, P1 is {}, P5 is {}".format(test_metrics[-1][0], test_metrics[-1][1], test_metrics[-1][2], test_metrics[-1][3])
+    print("The DEV MAP is", dev_metrics[-1][0], "MRR is", dev_metrics[-1][1], "P1 is", dev_metrics[-1][2],"P5 is", dev_metrics[-1][3])
+    print("The TEST MAP is", test_metrics[-1][0], "MRR is", test_metrics[-1][1], "P1 is", test_metrics[-1][2], "P5 is", test_metrics[-1][3])
     if not(pre_trained_encoder):
         encoder_optimizer = torch.optim.Adam(encoder.parameters(), LR, weight_decay=0.0)
 
     model_optimizer = torch.optim.Adam(model.parameters(), LR, weight_decay=0.0)
-    for epoch in xrange(num_epoch):
-        print "Training epoch {}".format(epoch)
+    for epoch in range(num_epoch):
+        print("Training epoch:", epoch)
         train_batches = data_loader.create_batches(train_data, batch_size)
         N = len(train_batches)
         train_loss = 0.0
@@ -655,19 +636,19 @@ def train(encoder, model, num_epoch, data_loader, train_data, dev_data, test_dat
                 t.set_description("batch_loss: {}".format(loss.cpu().data[0]))
                 train_loss += loss.cpu().data[0]
             except:
-                print idts, idbs, idps
+                print(idts, idbs, idps)
                 continue
 
         train_losses.append(train_loss)
         dev_metrics.append(evaluate(dev_data, score, encoder, model, cuda, forward))
         test_metrics.append(evaluate(test_data, score, encoder, model, cuda, forward))
-        print "At end of epoch {}:".format(epoch)
-        print "The train loss is {}".format(train_loss)
-        print "The DEV MAP is {}, MRR is {}, P1 is {}, P5 is {}".format(dev_metrics[-1][0], dev_metrics[-1][1], dev_metrics[-1][2], dev_metrics[-1][3])
-        print "The TEST MAP is {}, MRR is {}, P1 is {}, P5 is {}".format(test_metrics[-1][0], test_metrics[-1][1], test_metrics[-1][2], test_metrics[-1][3])
+        print("At end of epoch:", epoch)
+        print("The train loss is:",train_loss)
+        # print "The DEV MAP is {}, MRR is {}, P1 is {}, P5 is {}".format(dev_metrics[-1][0], dev_metrics[-1][1], dev_metrics[-1][2], dev_metrics[-1][3])
+        # print "The TEST MAP is {}, MRR is {}, P1 is {}, P5 is {}".format(test_metrics[-1][0], test_metrics[-1][1], test_metrics[-1][2], test_metrics[-1][3])
     return train_losses, dev_metrics, test_metrics
 
-def train_cross(encoder, model, num_epoch, data_loader, train_data, dev_data, test_data, batch_size, forward, pre_trained_encoder=True, cuda=False, LR=0.001):
+def train_cross(encoder, model, num_epoch, data_loader, train_data, dev_data, test_data, batch_size, forward, LR=0.001, pre_trained_encoder=True, cuda=False):
     train_losses = []
     dev_metrics = []
     test_metrics = []
@@ -679,8 +660,8 @@ def train_cross(encoder, model, num_epoch, data_loader, train_data, dev_data, te
     print("dev AUC(0.05) score : {}".format(dev_metrics[-1]))
     print("test AUC(0.05) score : {}".format(test_metrics[-1]))
     model_optimizer = torch.optim.Adam(model.parameters(), LR, weight_decay=0.0)
-    for epoch in xrange(num_epoch):
-        print "Training epoch {}".format(epoch)
+    for epoch in range(num_epoch):
+        print("Training epoch:", epoch)
         train_batches = data_loader.create_batches(train_data, batch_size)
         N = len(train_batches)
         train_loss = 0.0
@@ -705,7 +686,7 @@ def train_cross(encoder, model, num_epoch, data_loader, train_data, dev_data, te
                 t.set_description("batch_loss: {}".format(loss.cpu().data[0]))
                 train_loss += loss.cpu().data[0]
             except:
-                print idts, idbs, idps
+                print(idts, idbs, idps)
                 continue
 
         train_losses.append(train_loss)
@@ -732,15 +713,15 @@ def advisarial_trainer(encoder, model, classifier, num_epoch, data_loader, train
     print("test AUC(0.05) score : {}".format(test_metrics[-1]))
 
     criterion = nn.BCEWithLogitsLoss()
-    print "L =", L
+    print("L =", L)
     adaptive = False
     if L == False:
         adaptive = True
 
     model_optimizer = torch.optim.Adam(model.parameters(), LR, weight_decay=0.0)
     classifier_optimizer = torch.optim.Adam(classifier.parameters(), -10 * LR, weight_decay=0.0)
-    for epoch in xrange(num_epoch):
-        print "Training epoch {}".format(epoch)
+    for epoch in range(num_epoch):
+        print("Training epoch:", epoch)
         train_batches = data_loader.create_batches(train_data, batch_size)
         N = len(train_batches)
         train_loss = 0.0
@@ -782,7 +763,7 @@ def advisarial_trainer(encoder, model, classifier, num_epoch, data_loader, train
                 model_optimizer.step()
                 classifier_optimizer.step()
             except:
-                print ":("
+                print(":(")
             t.set_description("batch_loss: {}, qa_loss: {}, advisarial_loss: {}, L: {}".format(loss.cpu().data[0], loss_1.cpu().data[0], loss_2.cpu().data[0], L))
             train_loss += loss.cpu().data[0]
             advisarial_loss += loss_2.cpu().data[0]
@@ -801,57 +782,34 @@ def advisarial_trainer(encoder, model, classifier, num_epoch, data_loader, train
     return (train_losses, classic_loss, advisarial_loss), dev_metrics, test_metrics
 
 
-class BM25_TDIDF:
-    def __init__(self, data_file, delimiter='\t'):
-        self.doc_term_counter = defaultdict(lambda: 0)
-        self.documents = dict()
-        self.document_lengths = dict()
-        self.total_lengths = 0
-        self.N = 0
-        with open(data_file) as data:
-            for line in data:
-                id, title, body = line.split(delimiter)
-                if len(title) == 0:
-                    continue
-                title = title.strip().split()
-                body = body.strip().split()
-                text = title + body
-                self.documents[id] = Counter(text)
-                for term in self.documents[id]:
-                    self.doc_term_counter[term] += 1
-                self.document_lengths[id] = len(text)
-                self.total_lengths += len(text)
-                self.N += 1
-        self.avg_len = self.total_lengths/float(self.N)
-        self.BMIDF = dict()
-        self.TFIDF = dict()
-        for term in self.doc_term_counter:
-            self.BMIDF[term] = math.log((self.N - self.doc_term_counter[term] + 0.5) / (self.doc_term_counter[term] + 0.5))
-            self.TFIDF[term] = math.log((self.N)/(self.doc_term_counter[term]+1))+1
-
-
-    def BM25Score(self, q1, q2s, k1=1.5, b=0.75):
-        scores = []
-        for q2 in q2s:
-            doc = self.documents[q2]
-            commonTerms = set(self.documents[q1]) & set(doc)
-            tmp_score = []
-            doc_terms_len = self.document_lengths[q2]
-            for term in commonTerms:
-                upper = (doc[term] * (k1+1))
-                below = ((doc[term]) + k1*(1 - b + b*doc_terms_len/self.avg_len))
-                tmp_score.append(self.BMIDF[term] * upper / below)
-            scores.append(sum(tmp_score))
-        return np.array(scores)
-
-    def TFIDFScore(self, q1, q2s):
-        scores = []
-        for q2 in q2s:
-            doc = self.documents[q2]
-            commonTerms = set(self.documents[q1]) & set(doc)
-            tmp_score = []
-            doc_terms_len = self.document_lengths[q2]
-            for term in commonTerms:
-                tmp_score.append( self.TFIDF[term] * math.sqrt(doc[term]) * 1.0/math.sqrt(doc_terms_len))
-            scores.append(sum(tmp_score))
-        return np.array(scores)
+# import gzip
+# 
+# path ="../data/text_tokenized.txt.gz"
+# path_1 = "../data/text_tokenized-small.txt"
+# 
+# def create_small_corpus(path):
+#     empty_cnt = 0
+#     num_lines = 0
+#     fopen = gzip.open if path.endswith(".gz") else open
+#     with fopen(path, mode = 'rt', encoding = "utf-8") as fin:
+#         with open(path_1, mode = "w+t", encoding = "utf-8") as fout:
+#             for line in fin:
+#                 if num_lines < 5000:
+#                     # print(type(line), line)
+#                     fout.write(line)
+#                     num_lines += 1
+#                 else:
+#                     break
+#     
+#     fout.close()
+#                     
+# 
+# 
+# def write_file(path_1):
+#     with open(path_1, mode = "w+t", encoding = "utf-8") as fout:
+#         fout.write("1    this is a test\n")
+#         fout.write("100    this too is a test\n")
+# 
+# 
+# create_small_corpus(path)
+# # write_file(path_1)

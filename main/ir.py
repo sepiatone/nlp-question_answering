@@ -2,19 +2,26 @@ import sys
 import time
 import argparse
 import gzip
-import cPickle as pickle
+import pickle
 
 from prettytable import PrettyTable
 import numpy as np
 import theano
 import theano.tensor as T
 
-from utils import load_embedding_iterator
-from nn import get_activation_by_name, create_optimization_updates
-from nn import EmbeddingLayer, LSTM, GRU, RCNN, Dropout, apply_dropout
+import torch
+import torch.nn as nn
+
+# from utils import * # from utils import load_embedding_iterator
+# from nn import get_activation_by_name, create_optimization_updates
+# from nn import LSTM, GRU, RCNN, Dropout, apply_dropout
+from tmp import get_activation_by_name
+from tmp_2 import create_optimization_updates
+from tmp import Dropout, apply_dropout, RCNN
+
 import myio
-from myio import say
-from evaluation import Evaluation
+from util import Evaluation # from evaluation import Evaluation
+
 
 class Model:
     def __init__(self, args, embedding_layer, weights=None):
@@ -48,10 +55,10 @@ class Model:
 
         if args.layer.lower() == "rcnn":
             LayerType = RCNN
-        elif args.layer.lower() == "lstm":
-            LayerType = LSTM
-        elif args.layer.lower() == "gru":
-            LayerType = GRU
+#         elif args.layer.lower() == "lstm":
+#             LayerType = LSTM
+#         elif args.layer.lower() == "gru":
+#             LayerType = GRU
 
         depth = self.depth = args.depth
         layers = self.layers = [ ]
@@ -108,7 +115,7 @@ class Model:
         if args.normalize:
             ht = self.normalize_3d(ht)
             hb = self.normalize_3d(hb)
-            say("h_title dtype: {}\n".format(ht.dtype))
+            myio.say("h_title dtype: {}\n".format(ht.dtype))
 
         self.ht = ht
         self.hb = hb
@@ -121,14 +128,14 @@ class Model:
         else:
             ht = ht[-1]
             hb = hb[-1]
-        say("h_avg_title dtype: {}\n".format(ht.dtype))
+        myio.say("h_avg_title dtype: {}\n".format(ht.dtype))
 
         # batch * d
         h_final = (ht+hb)*0.5
         h_final = apply_dropout(h_final, dropout)
         h_final = self.normalize_2d(h_final)
         self.h_final = h_final
-        say("h_final dtype: {}\n".format(ht.dtype))
+        myio.say("h_final dtype: {}\n".format(ht.dtype))
 
         # For testing:
         #   first one in batch is query, the rest are candidate questions
@@ -153,7 +160,7 @@ class Model:
         for l in self.layers:
             params += l.params
         self.params = params
-        say("num of parameters: {}\n".format(
+        myio.say("num of parameters: {}\n".format(
             sum(len(x.get_value(borrow=True).ravel()) for x in params)
         ))
 
@@ -192,7 +199,7 @@ class Model:
                 on_unused_input='ignore'
             )
 
-        say("\tp_norm: {}\n".format(
+        myio.say("\tp_norm: {}\n".format(
                 self.get_pnorm_stat()
             ))
 
@@ -205,7 +212,7 @@ class Model:
         test_MAP = test_MRR = test_P1 = test_P5 = 0
         start_time = 0
         max_epoch = args.max_epoch
-        for epoch in xrange(max_epoch):
+        for epoch in range(max_epoch):
             unchanged += 1
             if unchanged > 15: break
 
@@ -219,7 +226,7 @@ class Model:
             train_loss = 0.0
             train_cost = 0.0
 
-            for i in xrange(N):
+            for i in range(N):
                 # get current batch
                 idts, idbs, idps = train_batches[i]
 
@@ -227,8 +234,8 @@ class Model:
                 train_loss += cur_loss
                 train_cost += cur_cost
 
-                if i % 10 == 0:
-                    say("\r{}/{}".format(i,N))
+                if i % 2 == 0: # i % 10 == 0:
+                    myio.say("\r{}/{}".format(i,N))
 
                 if i == N-1:
                     self.dropout.set_value(0.0)
@@ -253,8 +260,8 @@ class Model:
                                 theano.config.floatX)
                     self.dropout.set_value(dropout_p)
 
-                    say("\r\n\n")
-                    say( ( "Epoch {}\tcost={:.3f}\tloss={:.3f}" \
+                    myio.say("\r\n\n")
+                    myio.say( ( "Epoch {}\tcost={:.3f}\tloss={:.3f}" \
                         +"\tMRR={:.2f},{:.2f}\t|g|={:.3f}\t[{:.3f}m]\n" ).format(
                             epoch,
                             train_cost / (i+1),
@@ -264,13 +271,13 @@ class Model:
                             float(grad_norm),
                             (time.time()-start_time)/60.0
                     ))
-                    say("\tp_norm: {}\n".format(
+                    myio.say("\tp_norm: {}\n".format(
                             self.get_pnorm_stat()
                         ))
 
-                    say("\n")
-                    say("{}".format(result_table))
-                    say("\n")
+                    myio.say("\n")
+                    myio.say("{}".format(result_table))
+                    myio.say("\n")
 
 
     def get_pnorm_stat(self):
@@ -357,55 +364,58 @@ class Model:
 
 def main(args):
     raw_corpus = myio.read_corpus(args.corpus)
+    print("raw corpus:", args.corpus, "len:", len(raw_corpus))
     embedding_layer = myio.create_embedding_layer(
                 raw_corpus,
                 n_d = args.hidden_dim,
                 cut_off = args.cut_off,
-                embs = load_embedding_iterator(args.embeddings) if args.embeddings else None
+                embs = None # embs = load_embedding_iterator(args.embeddings) if args.embeddings else None
             )
     ids_corpus = myio.map_corpus(raw_corpus, embedding_layer, max_len=args.max_seq_len)
-    say("vocab size={}, corpus size={}\n".format(
+    myio.say("vocab size={}, corpus size={}\n".format(
             embedding_layer.n_V,
             len(raw_corpus)
         ))
     padding_id = embedding_layer.vocab_map["<padding>"]
-
+ 
     if args.reweight:
         weights = myio.create_idf_weights(args.corpus, embedding_layer)
 
-    if args.dev:
-        dev = myio.read_annotations(args.dev, K_neg=-1, prune_pos_cnt=-1)
-        dev = myio.create_eval_batches(ids_corpus, dev, padding_id, pad_left = not args.average)
-    if args.test:
-        test = myio.read_annotations(args.test, K_neg=-1, prune_pos_cnt=-1)
-        test = myio.create_eval_batches(ids_corpus, test, padding_id, pad_left = not args.average)
-
+# 
+#     if args.dev:
+#         dev = myio.read_annotations(args.dev, K_neg=-1, prune_pos_cnt=-1)
+#         dev = myio.create_eval_batches(ids_corpus, dev, padding_id, pad_left = not args.average)
+#     if args.test:
+#         test = myio.read_annotations(args.test, K_neg=-1, prune_pos_cnt=-1)
+#         test = myio.create_eval_batches(ids_corpus, test, padding_id, pad_left = not args.average)
+ 
     if args.train:
         start_time = time.time()
         train = myio.read_annotations(args.train)
+        print("training data:", args.train, "len:", len(train))
         train_batches = myio.create_batches(ids_corpus, train, args.batch_size,
                                 padding_id, pad_left = not args.average)
-        say("{} to create batches\n".format(time.time()-start_time))
-        say("{} batches, {} tokens in total, {} triples in total\n".format(
+        myio.say("{:.2f} secs to create {} batches of size {}\n".format( (time.time()-start_time), len(train_batches), args.batch_size))
+        myio.say("{} batches, {} tokens in total, {} triples in total\n".format(
                 len(train_batches),
                 sum(len(x[0].ravel())+len(x[1].ravel()) for x in train_batches),
                 sum(len(x[2].ravel()) for x in train_batches)
             ))
-        train_batches = None
-
+#         train_batches = None
+ 
         model = Model(args, embedding_layer,
                       weights=weights if args.reweight else None)
         model.ready()
-
-        # set parameters using pre-trained network
-        if args.load_pretrain:
-            model.load_pretrained_parameters(args)
-
+ 
+#         # set parameters using pre-trained network
+#         if args.load_pretrain:
+#             model.load_pretrained_parameters(args)
+# 
         model.train(
                 ids_corpus,
                 train,
-                dev if args.dev else None,
-                test if args.test else None
+                dev = None, # dev if args.dev else None,
+                test = None # test if args.test else None
             )
 
 if __name__ == "__main__":
@@ -510,6 +520,10 @@ if __name__ == "__main__":
             default = ""
         )
     args = argparser.parse_args()
-    print args
-    print ""
+    # args.corpus = "../data/text_tokenized.txt.gz"
+    args.corpus = "../data/ask_ubuntu/text_tokenized-small.txt"
+    args.train = "../data/ask_ubuntu/train_random.txt"
+    args.max_epoch = 1
+    print("args:", args)
+    print("")
     main(args)
