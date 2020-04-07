@@ -27,3 +27,5 @@ We first apply our model trained on the AskUbuntu dataset on the Android dataset
 
 
 Baseline metrics are obatained by using in-house implementations of the  [BM25](http://www.staff.city.ac.uk/~sb317/papers/foundations_bm25_review.pdf) and [TF-IDF](https://en.wikipedia.org/wiki/Tf%E2%80%93idf) algorithms.
+
+[Framework](https://github.com/taolei87) from [Tao Lei](https://people.csail.mit.edu/taolei/)
