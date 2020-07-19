@@ -1,6 +1,6 @@
 #### Overview
 
-Question Answering is a subfield in Natural Language Processing dealing with automated systems to respond to a question from the user.
+Question Answering is a subfield in Natural Language Processing dealing with automated systems which respond with a suitable answer to a question from the user.
 
 A project for MIT 6.864 - Advanced Natural Language Processing, Fall 2017 done in collaboration with [Raoul Khouri](https://github.com/Keyrat06)
 
