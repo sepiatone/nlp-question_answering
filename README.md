@@ -1,6 +1,6 @@
 #### Overview
 
-An automated system to respond to a question based on its similarity to one (with an associated answer) in the corpus.
+Question Answering is a subfield in Natural Language Processing dealing with automated systems to respond to a question from the user.
 
 A project for MIT 6.864 - Advanced Natural Language Processing, Fall 2017 done in collaboration with [Raoul Khouri](https://github.com/Keyrat06)
 
@@ -14,7 +14,7 @@ In this project we build some of the pieces of an automated system that can hand
 
 #### Task - Question Retrieval
 
-We are given a set of questions Q and a training set of similar question pairs {(q1; q11, q12, ...), (q2; q21, q22, ...), ...}. Given a new quest q, we have to return all similar question from Q.
+We are given a set of questions Q and a training set of similar question pairs {(q1; q11, q12, ...), (q2; q21, q22, ...), ...}. Given a new question q, we have to return all similar question from Q.
 
 The model will be trained on the [AskUbuntu](https://github.com/taolei87/askubuntu) dataset. The algorithm is based on the paper [Semi-supervised Question Retrieval with Gated Convolutions](https://arxiv.org/pdf/1512.05726.pdf)
 
